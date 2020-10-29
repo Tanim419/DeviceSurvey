@@ -1,0 +1,880 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rlang)
+library(glue)
+library(dplyr)
+library(plotrix)
+#library(plotly)
+library(grid)
+library(gridExtra)
+library(ggpubr)
+library(cowplot)
+library(reshape2)
+library(plyr)
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+library(ggwordcloud)
+library(ggplot2)
+library(ggrepel)
+library(forcats)
+library(scales)
+```
+
+```{r, echo=FALSE}
+root_dir <- getwd()
+project_directory<-dirname(root_dir)
+data_dir <- file.path(project_directory, 'raw-data')
+plot_dir <- file.path(project_directory, 'Plots/NSM_Staff')
+curated_data_dir <- file.path(project_directory, 'curated-data')
+
+data_file_name<-'ComputerSmartDevice.csv'
+# data_file_name<-'StandardPart_DATA_LABELS.csv'
+
+
+Device_data<-read.csv(file.path(data_dir,data_file_name),stringsAsFactors = FALSE)
+
+Device_data<- subset(Device_data, Device_data$Complete.=="Complete")
+
+
+# Device_data<- subset(Device_data, Device_data$College=="College of Liberal Arts and Social Sciences")
+Device_data<- subset(Device_data, Device_data$College=="College of Natural Sciences and Mathematics")
+# Device_data<- Device_data[,-c(1:3)]
+# Device_data<- Device_data[-c(1:10),]
+```
+
+
+```{r}
+for (i in 1:nrow(Device_data)) {
+  # if (Device_data$Participant.classification[i] == "Other") {
+  #   Device_data$Participant.classification[i] = Device_data$Please.enter.your.classification[i]
+  # }
+  # 
+  # if (Device_data$Main.department[i] == "Other") {
+  #   Device_data$Main.department[i] = Device_data$Please.write.down.your.main.department[i]
+  # }
+  # 
+  # if (Device_data$Race.Ethnicity[i] == "Other") {
+  #   Device_data$Race.Ethnicity[i] = Device_data$Please.enter.your.ethnicity[i]
+  # }
+  
+  
+  if (Device_data$Participant.classification[i]=="Post−Baccalaureate (non−degree option)"){
+    Device_data$Participant.classification[i]="P-B non-degree"
+  }   
+  if (Device_data$Participant.classification[i]=="Post−Baccalaureate (second degree)"){
+    Device_data$Participant.classification[i]="P-B second-degree"
+  }
+  if (Device_data$Participant.classification[i]=="Masters Student (MS)"){
+    Device_data$Participant.classification[i]="MS"
+  }   
+  if (Device_data$Participant.classification[i]=="Doctoral Student (PhD)"){
+    Device_data$Participant.classification[i]="PhD"
+  }
+  
+  if (Device_data$Race.Ethnicity[i]=="International (visa holders)"){
+    Device_data$Race.Ethnicity[i]="International"
+  }
+  
+  if (Device_data$What.type.of.computer.user.are.you.[i] == "Power User [... plus programming/analytics]") {
+    Device_data$What.type.of.computer.user.are.you.[i] ="Power User" 
+  } else{
+    Device_data$What.type.of.computer.user.are.you.[i] ="Standard User"
+  }
+  
+  if (Device_data$Do.you.have.a.webcam.[i] == "Built−in to my computer") {
+    Device_data$Do.you.have.a.webcam.[i] ="Built−in" 
+  }
+  
+  if (Device_data$Main.department.1[i]=="Communication Sciences and Disorders"){
+    Device_data$Main.department.1[i]="Communication Disorders"
+  }
+  if (Device_data$Main.department.1[i]=="Jack J. Valenti School of Communication"){
+    Device_data$Main.department.1[i]="School of Communication"
+  }
+  
+  
+  # if (Device_data$What.is.the.size.of.your.computer.screen.[i]=="Other"){
+  #   Device_data$What.is.the.size.of.your.computer.screen.[i]=Device_data$The.screen.size.of.your.computer[i]
+  # }
+  
+  # if (Device_data$What.model.is.your.computer.[i]=="Other"){
+  #   Device_data$What.model.is.your.computer.[i]=Device_data$Computer.model[i]
+  # }
+}
+
+# 
+# Device_data<-Device_data  %>%  dplyr::rename(
+#                                            Classification="Participant.classification")
+
+# colnames(Device_data)
+```
+
+
+
+```{r, echo=FALSE}
+
+file_name='Device_Survey.csv'
+write.csv(Device_data,file.path(curated_data_dir, file_name), row.names = FALSE)
+```
+
+
+```{r, echo=FALSE}
+Device_coreQ<- Device_data %>% select(Participant.classification,
+                                      Main.department,
+                                      Gender,
+                                      Race.Ethnicity,
+                                      What.type.of.computer.user.are.you.,
+                                      My.primary.computer.is.a,
+                                      What.year.was.your.computer.purchased.,
+                                      What.is.the.size.of.your.computer.screen.,
+                                      Do.you.have.a.warranty.on.your.computer.,
+                                      Do.you.have.a.webcam.,
+                                      How.would.you.rate.your.computer.,
+                                      What.model.is.your.computer.,
+                                      Computer.ownership,
+                                      What.is.the.operating.system.that.you.use.,
+                                      Operating.system.version,
+                                      Computer.processor,
+                                      Computer.memory.size..RAM.,
+                                      Computer.hard.disk,
+                                      Current.size.of.your.data.in.the.computer.s.hard.disk,
+                                      Do.you.backup.the.data.from.your.computer.,
+                                      What.backup.method.do.you.use.,
+                                      Brand.of.external.back.up.disk,
+                                      Brand.of.cloud,
+                                      Backup.frequency,
+                                      Have.you.set.up.automatic.backups.,
+                                      Have.you.experienced.a.catastrophic.loss.of.data.in.the.last.three.years.,
+                                      Are.you.familiar.with.the.UH.Microsoft.365.OneDrive.for.automated..incremental.backups.,
+                                      Do.you.have.a.secondary.computer.device.,
+                                      Is.it.synced.with.your.primary.computer.device.,
+                                      Do.you.have.a.smartphone.,
+                                      Smartphone.brand,
+                                      Smartphone.model,
+                                      Do.you.have.a.smartwatch.,
+                                      Smartwatch.brand,
+                                      Smartwatch.model,
+                                      What.is.your.preferred.course.delivery.format.for.courses.in.the.Fall.2020.semester.,
+                                    How.confident.do.you.feel.installing.and.configuring.software..docker.containers..VPN..backup.software..and.others..by.yourself.on.your.computer.,
+                                    Speed.of.your.home.Internet,
+                                    Given.your.online.course.experience.from.Spring.2020..how.reliable.has.your.Internet.connectivity.been.overall.,
+                                    If.you.were.provided.adequate.IT.support.to.setup.your.primary.computers.with.needed.coursework.software..how.likely.would.you.use.the.on.campus.Computer.Labs.in.a.future.semester.,
+                                    Would.it.be.beneficial.for.IT.personnel.to.have.office.hours..like.a.help.desk..to.assist.you.with.with.course.related.software.issues..general.computer.systems.issues..and.other.related.challenges.
+                                      )
+
+
+
+
+
+Device_coreQ<-Device_coreQ  %>%  dplyr::rename(
+                                      Classification = "Participant.classification", 
+                                      Department = "Main.department",
+                                      Gender = "Gender",
+                                      Race = "Race.Ethnicity",
+                                      User_type = "What.type.of.computer.user.are.you.",
+                                      Primary_Computer = "My.primary.computer.is.a",
+                                      Computer_purchased ="What.year.was.your.computer.purchased.",
+                                      Computer_screen = "What.is.the.size.of.your.computer.screen.",
+                                      Warranty = "Do.you.have.a.warranty.on.your.computer.",
+                                      Webcam = "Do.you.have.a.webcam.",
+                                      Computer_rating = "How.would.you.rate.your.computer.",
+                                      Computer_model = "What.model.is.your.computer.",
+                                      ownership = "Computer.ownership",
+                                      operating_system = "What.is.the.operating.system.that.you.use.",
+                                      Os_version = "Operating.system.version",
+                                      Processor = "Computer.processor",
+                                      RAM="Computer.memory.size..RAM.",
+                                      Hard_disk = "Computer.hard.disk",
+                                      Data_HD="Current.size.of.your.data.in.the.computer.s.hard.disk",
+                                      Backup ="Do.you.backup.the.data.from.your.computer.",
+                                      Backup_method = "What.backup.method.do.you.use.",
+                                      Ext_brand = "Brand.of.external.back.up.disk",
+                                      Clou_brand = "Brand.of.cloud",
+                                      Backup_frequency = "Backup.frequency",
+                                      Automatic_backups = "Have.you.set.up.automatic.backups.",
+                                      Loss_of_data = "Have.you.experienced.a.catastrophic.loss.of.data.in.the.last.three.years.",
+                                      UH_M_OneDrive="Are.you.familiar.with.the.UH.Microsoft.365.OneDrive.for.automated..incremental.backups.",
+                                      Secondary_device  = "Do.you.have.a.secondary.computer.device.",
+                                      Synced_Primary = "Is.it.synced.with.your.primary.computer.device.",
+                                      Smartphone = "Do.you.have.a.smartphone.",
+                                      Smartphone_brand = "Smartphone.brand",
+                                      Smartphone_model = "Smartphone.model",
+                                      smartwatch = "Do.you.have.a.smartwatch.",
+                                      Smartwatch_brand = "Smartwatch.brand",
+                                      Smartwatch_model="Smartwatch.model",
+                                      Course_format = "What.is.your.preferred.course.delivery.format.for.courses.in.the.Fall.2020.semester.",
+                                      Confident_installing="How.confident.do.you.feel.installing.and.configuring.software..docker.containers..VPN..backup.software..and.others..by.yourself.on.your.computer.",
+                                      Internet_speed="Speed.of.your.home.Internet",
+                                      Internet_reliability= "Given.your.online.course.experience.from.Spring.2020..how.reliable.has.your.Internet.connectivity.been.overall.",
+                                      Computer_labs="If.you.were.provided.adequate.IT.support.to.setup.your.primary.computers.with.needed.coursework.software..how.likely.would.you.use.the.on.campus.Computer.Labs.in.a.future.semester.",
+                                      Customare_vcare="Would.it.be.beneficial.for.IT.personnel.to.have.office.hours..like.a.help.desk..to.assist.you.with.with.course.related.software.issues..general.computer.systems.issues..and.other.related.challenges.")
+
+Device_coreQ$Computer_purchased<-as.character(Device_coreQ$Computer_purchased)
+
+
+
+
+Title_list <- c("Participant classification",
+                "Department",
+                "Gender",
+                "Race",
+                "User type",
+                "Primary computer",
+                "Purchase year of computer",
+                "Computer screen size",
+                "Warranty",
+                "Webcam",
+                "Subjective rating of primary computer",
+                "Computer model",
+                "Computer Ownership",
+                "Operating system",
+                "Operating system version",
+                "Processor",
+                "RAM",
+                "Hard disk size",
+                "Data size in hard disk",
+                "Do you backup the data?",
+                "Backup method",
+                "Brand of external backup device",
+                "Brand of cloud backup",
+                "Backup frequency",
+                "Do you have automatic backups?",
+                "Experienced loss of data",
+                "Familiar with UH Microsoft OneDrive",
+                "Do you have a secondary device?",
+                "Secondary device synced with the primary device",
+                "Do you have a Smartphone?",
+                "Smartphone brand",
+                "Smartphone model",
+                "Do you have a Smartwatch?",
+                "Smartwatch brand",
+                "Smartwatch model",
+                "Prefereed course format in fall 2020",
+                "Confidence in installing and configuring software",
+                "Home Internet speed",
+                "Reliability of home Internet"
+                # "Usage of on-campus computer labs in a future semester",
+                # "IT professional support would be beneficial"
+                )
+
+```
+
+```{r}
+
+
+file_name='Device_core_questions.csv'
+write.csv(Device_coreQ,file.path(curated_data_dir, file_name), row.names = FALSE)
+ # levels(factor(Device_coreQ$classification))
+levels(factor(Device_coreQ$Smartphone_model))
+
+Device_coreQ<-subset(Device_coreQ, Classification !="Freshman" &
+                       Classification !="Junior" &
+                       Classification !="MS" &
+                       Classification !="PhD" &
+                       Classification !="Senior" &
+                       Classification !="Sophomore" &
+                       Classification !="P-B non-degree" &
+                       Classification !="Postdoctoral" &
+                       Classification !="Other")
+```
+
+```{r}
+
+classification = c(
+  "Research Faculty",
+  "Instructional Faculty",
+  "Assistant Professor",
+  "Associate Professor",
+  "Professor",
+  "Staff"
+)
+Department = c(
+  "Biology and Biochemistry",
+  "Chemistry",
+  "Computer Science",
+  "Earth and Atmospheric Sciences",
+  "Mathematics",
+  "Physics"
+)
+
+Gender = c("Female", "Male", "Prefer Not to Say")
+
+
+
+Race = c(
+  "African American",
+  "Asian American",
+  "Hispanic",
+  "International",
+  "Multiracial",
+  "Prefer Not to Say",
+  "White",
+  "Other"
+)
+
+user_type = c("Power User", "Standard User")
+primary_device = c ("Tablet", "Laptop", "Desktop")
+purchased = c("2010",
+              "2012",
+              "2013",
+              "2014",
+              "2015",
+              "2016",
+              "2017",
+              "2018",
+              "2019",
+              "2020")
+screen = c ("13''", "14''", "15''", "17''",  "Other")
+warranty = c("No", "1 year",  "3 year", "Other")
+Webcam = c("No", "Built-in", "External")
+rete_pc = c("Poor", "Fair", "Average", "Good",   "Excellent")
+model = c(
+  "Apple Macbook Air",
+  "Apple Macbook Pro",
+  "Dell Inspiron 3000",
+  "Dell Inspiron 5000",
+  "Dell Inspiron 7000",
+  "Dell Latitude 5000",
+  "Dell Latitude 7000",
+  "Lenovo ThinkPad",
+  "Lenovo Yoga",
+  "Microsoft Surface",
+  "Other"
+)
+
+ownership = c("Own", "University property")
+os = c("Mac OS",  "Windows OS",   "Other")
+os_version = c(
+  "Catalina",
+  "High Sierra",
+  "Mojave",
+  "Windows 10 Enterprise",
+  "Windows 10 Home",
+  "Windows 10 Pro",
+  "Other"
+)
+
+
+processor = c("AMD Ryzen",     "Intel Core i5", "Intel Core i7", "Intel Core i9", "Other" )
+
+RAM = c("4 GB", "8 GB", "16 GB", "32 GB", "> 32 GB")
+HD = c("128 GB", "256 GB", "512 GB", "1 TB","> 1 TB")
+data_size = c("< 100 GB", "100 GB - 500 GB", "500 GB - 1 TB","> 1 TB")
+backup = c("No",  "Yes")
+backup_method = c("External backup disk", "Cloud", "Both")
+
+ext_brand = c("Samsung", "Seagate", "WD", "Other")
+cloud_brand = c("Apple iCloud",       "Dropbox",            "Google Drive",       "Microsoft OneDrive", "Other" )
+backup_frq = c ("Daily", "Weekly", "Monthly", "Other")
+automatic_backup = c("No", "Yes")
+loss_data = c("No", "Yes")
+UH_OneDrive = c("No", "Yes")
+Secondary_device = c("No", "Yes")
+synced = c("No", "Yes")
+
+smartphone = c("No", "Yes")
+smartphone_brand = c("Google",  "iPhone", "Samsung", "Other")
+sp_model = c("iPhone 8", "iPhone X Series", "iPhone 11", "Google Pixel 3a", "Samsung Galaxy", "Other")
+
+smart_watch = c("No", "Yes")
+smart_watch_brand = c("Apple Watch", "Fitbit", "Samsung", "Other")
+smartwatch_model= c("Apple Watch 3", "Apple Watch 4", "Apple Watch 5", "Fitbit Versa", "Samsung Galaxy Watch","Other")
+
+course_format= c("Face-to-Face", "Fully Online",   "Hybrid/Blended")
+confident = c("Not confident", "Somewhat confident","Neutral", "Moderately confident", "Very confident")
+internet_speed = c("< 100 Mbps", "100 - 300 Mbps", "300 - 500 Mbps","> 500 Mbps")
+internet_reliability= c("Poor", "Fair", "Average", "Good", "Excellent")
+# computer_lab= c("Very unlikely", "Somewhat unlikely", "Neither likely nor unlikely", "Somewhat likely", "Very likely")
+customatre_care =c("No","Maybe","Yes" )
+
+
+order_list <- list(classification,
+                   Department,
+                   Gender,
+                   Race,
+                   user_type,
+                   primary_device,
+                   purchased,
+                   screen,
+                   warranty,
+                   Webcam,
+                   rete_pc,
+                   model,
+                   ownership,
+                   os,
+                   os_version,
+                   processor,
+                   RAM,
+                   HD,
+                   data_size,
+                   backup,
+                   backup_method,
+                   ext_brand,
+                   cloud_brand,
+                   backup_frq,
+                   automatic_backup,
+                   loss_data,
+                   UH_OneDrive,
+                   Secondary_device,
+                   synced,
+                   smartphone,
+                   smartphone_brand,
+                   sp_model,
+                   smart_watch,
+                   smart_watch_brand,
+                   smartwatch_model,
+                   course_format,
+                   confident,
+                   internet_speed,
+                   internet_reliability)
+                   # computer_lab,
+                   # customatre_care)
+```
+
+```{r}
+
+#####Test a single core questions
+
+  temp <- count(Device_coreQ$Classification)
+  colnames(temp) <- c("item", "cou")
+  temp <- temp[!(temp$item == ""),]
+  temp <- temp[order(temp$cou), ]
+  # temp$order<-order_list[[i]]
+  temp <- temp[match(order_list[[1]], temp$item),]
+  temp <- temp %>% mutate(item = factor(x = item, levels = item))
+# # 
+# temp["Rest", ] <- temp["1",] + temp["4",] + temp["5",] + temp["7",]
+#     temp <- temp[rownames(temp) != "1",]
+#     temp <- temp[rownames(temp) != "4",]
+#     temp <- temp[rownames(temp) != "5",]
+#     temp <- temp[rownames(temp) != "7",]
+# # 
+#     temp$item <-
+#       c( "Asian American",
+#          "Hispanic",
+#          "Prefer Not to Say", 
+#          "White",
+#          "Rest")
+    
+    
+    
+    temp <- temp %>%
+      mutate(
+        cs = rev(cumsum(rev(cou))),
+        prop = percent(cou / sum(cou)),
+        pos = cou / 2 + lead(cs, 1),
+        pos = if_else(is.na(pos), cou / 2, pos)
+      )
+temp$pos[is.na(temp$pos)] <- 20
+temp$pos[2] <- 88
+
+
+# temp<-temp[match(order_list[[2]], temp$item),]
+
+ggplot(temp, aes(x = "" , y = cou, fill = fct_inorder(item))) +
+    geom_col(width = 1) +
+    coord_polar(theta = "y", start = 0) +
+    scale_fill_brewer(palette = "Set3", direction = -4) +
+    geom_label_repel(
+      aes(y = pos, label = paste0(item," " ,prop)),
+      data = temp,
+      size = 4,
+      show.legend = F,
+      nudge_x = 1
+    ) +
+    theme_void() +
+    theme(legend.position = "none", legend.title = element_blank())
+
+```
+
+
+
+```{r,echo=FALSE}
+# ylimit= round_any(nrow(Core_Questions), 10,f = ceiling)
+ylimit = 105
+
+
+plot_list <- list()
+
+for (i in 1:length(order_list)) {
+  # for (i in 1:1) {
+  
+  temp <- count(Device_coreQ[i])
+  colnames(temp) <- c("item", "cou")
+  temp <- temp[!(temp$item == ""),]
+  temp <- temp[order(temp$cou), ]
+  # temp$order<-order_list[[i]]
+  temp <- temp[match(order_list[[i]], temp$item),]
+  temp <- temp %>% mutate(item = factor(x = item, levels = item))
+  
+  
+  bar_plot <- ggplot(data = temp, aes(x = item, y = cou)) +
+    geom_bar(stat = "identity",
+             width = 0.5,
+             fill = "steelblue") +
+    theme_bw() +
+    scale_y_continuous(breaks = seq(0, ylimit, by = 21),
+                       limits = c(0, ylimit)) +
+    labs(x = "", y = "Participant count", title = Title_list[i]) +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(hjust = 0.5),
+      axis.text.x = element_text(
+        face = "bold",
+        size = 10 ,
+        angle = 60,
+        hjust = 1
+      ),
+      axis.text.y = element_text(face = "bold", size = 10)
+    ) + scale_x_discrete(limits = order_list[[i]])
+  
+  
+ if (i == 1) {
+    temp <- temp %>%
+      mutate(
+        cs = rev(cumsum(rev(cou))),
+        prop = percent(cou / sum(cou)),
+        pos = cou / 2 + lead(cs, 1),
+        pos = if_else(is.na(pos), cou / 2, pos)
+      )
+    temp$pos[2] <- 88
+    temp$pos[is.na(temp$pos)] <- 20
+    pie_chart <-
+      ggplot(temp, aes(x = "" ,
+                       y = cou,
+                       fill = fct_inorder(item))) +
+      geom_col(width = 1) +
+      coord_polar(theta = "y", start = 0) +
+      scale_fill_brewer(palette = "Set3", direction = -4) +
+      geom_label_repel(
+        aes(y = pos, label = paste0(item, " " , prop)),
+        data = temp,
+        size = 4,
+        show.legend = F,
+        nudge_x = 1
+      ) +
+      theme_void() +
+      theme(legend.position = "none", legend.title = element_blank())
+    
+    
+    
+    plot = ggarrange(bar_plot, pie_chart, nrow = 2, ncol = 1)
+    
+    filename <- paste("plot", i, ".pdf", sep = "")
+    full_path <- file.path(plot_dir, filename)
+    ggsave(full_path,
+           plot,
+           width = 8.5,
+           height = 11,
+           units = "in")
+
+  
+  } else if (i == 4) {
+    temp <- count(Device_coreQ$Race)
+    colnames(temp) <- c("item", "cou")
+    temp <- temp[!(temp$item == ""), ]
+    temp <- temp[order(temp$cou),]
+    # temp$order<-order_list[[i]]
+    temp <- temp[match(order_list[[4]], temp$item), ]
+    temp <- temp %>% mutate(item = factor(x = item, levels = item))
+    #
+    temp["Rest",] <- temp["1", ] + temp["4", ] + temp["5", ] + temp["7", ]
+    temp <- temp[rownames(temp) != "1", ]
+    temp <- temp[rownames(temp) != "4", ]
+    temp <- temp[rownames(temp) != "5", ]
+    temp <- temp[rownames(temp) != "7", ]
+    #
+    temp$item <-
+      c("Asian American",
+        "Hispanic",
+        "Prefer Not to Say",
+        "White",
+        "Rest")
+    
+    
+    
+    temp <- temp %>%
+      mutate(
+        cs = rev(cumsum(rev(cou))),
+        prop = percent(cou / sum(cou)),
+        pos = cou / 2 + lead(cs, 1),
+        pos = if_else(is.na(pos), cou / 2, pos)
+      )
+    temp$pos[is.na(temp$pos)] <- 5
+    pie_chart <-
+      ggplot(temp, aes(x = "" ,
+                       y = cou,
+                       fill = fct_inorder(item))) +
+      geom_col(width = 1) +
+      coord_polar(theta = "y", start = 0) +
+      scale_fill_brewer(palette = "Set3", direction = -4) +
+      geom_label_repel(
+        aes(y = pos, label = paste0(item, " " , prop)),
+        data = temp,
+        size = 4,
+        show.legend = F,
+        nudge_x = 1
+      ) +
+      theme_void() +
+      theme(legend.position = "none", legend.title = element_blank())
+    
+    
+    
+    plot = ggarrange(bar_plot, pie_chart, nrow = 2, ncol = 1)
+    
+    filename <- paste("plot", i, ".pdf", sep = "")
+    full_path <- file.path(plot_dir, filename)
+    ggsave(full_path,
+           plot,
+           width = 8.5,
+           height = 11,
+           units = "in")
+
+  
+  } else if (i == 12) {
+    temp["Dell Inspiration", ] <-temp["3",] + temp["4",] + temp["5",]
+    temp <- temp[rownames(temp) != "3",]
+    temp <- temp[rownames(temp) != "4",]
+    temp <- temp[rownames(temp) != "5",]
+    
+    temp["Dell Latitude", ] <- temp["6",] + temp["7",]
+    temp <- temp[rownames(temp) != "6",]
+    temp <- temp[rownames(temp) != "7",]
+    
+    temp$item <-
+      c(
+        "Apple Macbook Air",
+        "Apple Macbook Pro",
+        "Lenovo ThinkPad",
+        "Lenovo Yoga",
+        "Microsoft Surface",
+        "Other",
+        "Dell Inspiron",
+        "Dell Latitude"
+      )
+    temp <- temp %>%
+      mutate(
+        cs = rev(cumsum(rev(cou))),
+        prop = percent(cou / sum(cou)),
+        pos = cou / 2 + lead(cs, 1),
+        pos = if_else(is.na(pos), cou / 2, pos)
+      )
+    temp$pos[is.na(temp$pos)] <- 5
+    
+    pie_chart <-
+      ggplot(temp, aes(
+        x = "" ,
+        y = cou,
+        fill = fct_inorder(item)
+      )) +
+      geom_col(width = 1) +
+      coord_polar(theta = "y", start = 0) +
+      scale_fill_brewer(palette = "Set3", direction = -4) +
+      geom_label_repel(
+        aes(y = pos, label = paste0(item, " " , prop)),
+        data = temp,
+        size = 4,
+        show.legend = F,
+        nudge_x = 1
+      ) +
+      theme_void() +
+      theme(legend.position = "none", legend.title = element_blank())
+    
+    
+    
+    plot = ggarrange(bar_plot, pie_chart, nrow = 2, ncol = 1)
+    
+    filename <- paste("plot", i, ".pdf", sep = "")
+    full_path <- file.path(plot_dir, filename)
+    ggsave(
+      full_path,
+      plot,
+      width = 8.5,
+      height = 11,
+      units = "in"
+    )
+  } else if (i == 14) {
+    temp <- temp %>%
+      mutate(
+        cs = rev(cumsum(rev(cou))),
+        prop = percent(cou / sum(cou)),
+        pos = cou / 2 + lead(cs, 1),
+        pos = if_else(is.na(pos), cou / 2, pos)
+      )
+    temp$pos[is.na(temp$pos)] <- 1
+    
+    pie_chart <-
+      ggplot(temp, aes(
+        x = "" ,
+        y = cou,
+        fill = fct_inorder(item)
+      )) +
+      geom_col(width = 1) +
+      coord_polar(theta = "y", start = 0) +
+      scale_fill_brewer(palette = "Set3", direction = -4) +
+      geom_label_repel(
+        aes(y = pos, label = paste0(item, " " , prop)),
+        data = temp,
+        size = 4,
+        show.legend = F,
+        nudge_x = 1
+      ) +
+      theme_void() +
+      theme(legend.position = "none", legend.title = element_blank())
+    
+    
+    
+    plot = ggarrange(bar_plot, pie_chart, nrow = 2, ncol = 1)
+    
+    filename <- paste("plot", i, ".pdf", sep = "")
+    full_path <- file.path(plot_dir, filename)
+    ggsave(full_path,
+           plot,
+           width = 8.5,
+           height = 11,
+           units = "in")
+    
+  }
+else {
+    temp <- temp %>%
+      mutate(
+        cs = rev(cumsum(rev(cou))),
+        prop = percent(cou / sum(cou)),
+        pos = cou / 2 + lead(cs, 1),
+        pos = if_else(is.na(pos), cou / 2, pos)
+      )
+    temp$pos[is.na(temp$pos)] <- 3
+    
+    
+    pie_chart <-
+      ggplot(temp, aes(
+        x = "" ,
+        y = cou,
+        fill = fct_inorder(item)
+      )) +
+      geom_col(width = 1) +
+      coord_polar(theta = "y", start = 0) +
+      scale_fill_brewer(palette = "Set3", direction = -4) +
+      geom_label_repel(
+        aes(y = pos, label = paste0(item, " " , prop)),
+        data = temp,
+        size = 4,
+        show.legend = F,
+        nudge_x = 1
+      ) +
+      theme_void() +
+      theme(legend.position = "none", legend.title = element_blank())
+    
+    
+    
+    plot = ggarrange(bar_plot, pie_chart, nrow = 2, ncol = 1)
+    
+    filename <- paste("plot", i, ".pdf", sep = "")
+    full_path <- file.path(plot_dir, filename)
+    ggsave(
+      full_path,
+      plot,
+      width = 8.5,
+      height = 11,
+      units = "in"
+    )
+  }
+  
+  remove(temp)
+}
+
+```
+
+
+
+```{r}
+# Base version
+ylimit = 105
+
+
+plot_list <- list()
+
+for (i in 1:length(Device_coreQ)) {
+  temp <- count(Device_coreQ[i])
+  colnames(temp) <- c("item", "cou")
+  temp <- temp[!(temp$item == ""), ]
+  # temp <- temp[order(temp$cou), ]
+  # temp$order<-order_list[[i]]
+  temp <- temp[match(order_list[[i]], temp$item), ]
+  temp <- temp %>% mutate(item = factor(x = item, levels = item))
+
+  bar_plot <- ggplot(data = temp, aes(x = item, y = cou)) +
+    geom_bar(stat = "identity",
+             width = 0.5,
+             fill = "steelblue") +
+    theme_bw() +
+    scale_y_continuous(breaks = seq(0, ylimit, by = 21),
+                       limits = c(0, ylimit)) +
+    labs(x = "", y = "Count", title = Title_list[i]) +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(hjust = 0.5),
+      axis.text.x = element_text(
+        face = "bold",
+        size = 10 ,
+        angle = 45,
+        hjust = 1
+      ),
+      axis.text.y = element_text(face = "bold", size = 10)
+    ) + scale_x_discrete(limits = order_list[[i]])
+
+
+  temp <- temp %>%
+    mutate(
+      cs = rev(cumsum(rev(cou))),
+      prop = percent(cou / sum(cou)),
+      pos = cou / 2 + lead(cs, 1),
+      pos = if_else(is.na(pos), cou / 2, pos)
+    )
+  temp$pos[is.na(temp$pos)] <- 1
+
+
+  pie_chart <-
+    ggplot(temp, aes(
+      x = "" ,
+      y = cou,
+      fill = fct_inorder(item)
+    )) +
+    geom_col(width = 1) +
+    coord_polar(theta = "y", start = 0) +
+    scale_fill_brewer(palette = "Set3", direction = -4) +
+    geom_label_repel(
+      aes(y = pos, label = paste0(item, " " , prop)),
+      data = temp,
+      size = 4,
+      show.legend = F,
+      nudge_x = 1
+    ) +
+    theme_void() +
+    theme(legend.position = "none", legend.title = element_blank())
+
+
+
+  plot = ggarrange(bar_plot, pie_chart, nrow = 2, ncol = 1)
+
+  filename <- paste("plot", i, ".pdf", sep = "")
+  full_path <- file.path(plot_dir, filename)
+  ggsave(full_path,
+         plot,
+         width = 8.5,
+         height = 11,
+         units = "in")
+}
+
+```
+
+

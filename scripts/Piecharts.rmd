@@ -1,0 +1,123 @@
+---
+title: "PieCharts"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plotly)
+```
+
+```{r, echo=FALSE}
+
+root_dir <- getwd()
+project_directory<-dirname(root_dir)
+data_dir <- file.path(project_directory, 'raw-data')
+plot_dir <- file.path(project_directory, 'Plots')
+curated_data_dir <- file.path(project_directory, 'curated-data')
+
+data_file_name<-'Device_core_questions.csv'
+# data_file_name<-'StandardPart_DATA_LABELS.csv'
+
+
+Pie_chart_data<-read.csv(file.path(curated_data_dir,data_file_name),stringsAsFactors = FALSE)
+```
+
+
+```{r, echo=FALSE}
+Title_list <- c("Participant's classification",
+                "Department",
+                "Gender",
+                "Race",
+                "User type",
+                "Primary computer",
+                "Computer purchased year",
+                "Computer screen size",
+                "Warranty",
+                "Webcam",
+                "Rating of primary computer",
+                "Computer model",
+                "Ownership of the computer",
+                "Operating system",
+                "Operating system version",
+                "Processor",
+                "RAM",
+                "Hard disk size",
+                "Data size in hard disk",
+                "Do you backup the data",
+                "Backup method",
+                "Brand of external backup device",
+                "Brand of cloud backup",
+                "Backup frequency",
+                "Do you have automatic backups",
+                "Experienced loss of data",
+                "Familiar with UH Microsoft OneDrive",
+                "Do you have a secondary device",
+                "Secondary device synced with the primary device",
+                "Do you have a Smartphone",
+                "Smartphone brand",
+                "Smartphone model",
+                "Do you have a Smartwatch",
+                "Smartwatch brand",
+                "Smartwatch model",
+                "Prefereed course format in fall 2020",
+                "Confident to install and configure softwares",
+                "Internet speed of your home",
+                "Reliability of the internet",
+                "Usages of on-campus computer labs in a future semester",
+                "IT professional support would be beneficial")
+```
+
+
+```{r, echo=FALSE, warning=FALSE}
+  faculty <- plot_ly(
+    type = 'pie',
+    labels = Pie_chart_data[,1],
+    textinfo = 'label+percent',
+    insidetextorientation = 'radial'
+  )
+  faculty <-
+    faculty %>% layout(
+      title = list(text = Title_list[1] ),
+      xaxis = list(
+        showgrid = FALSE,
+        zeroline = FALSE,
+        showticklabels = FALSE
+      ),
+      yaxis = list(
+        showgrid = FALSE,
+        zeroline = FALSE,
+        showticklabels = FALSE
+      )
+    )
+  faculty
+```
+
+```{r, echo=FALSE, warning=FALSE}
+for (i in 1:length(Pie_chart_data)) {
+    faculty <- plot_ly(
+    type = 'pie',
+    labels = Pie_chart_data[,1],
+    textinfo = 'label+percent',
+    insidetextorientation = 'radial'
+  )
+  faculty <-
+    faculty %>% layout(
+      title = list(text = Title_list[1] ),
+      xaxis = list(
+        showgrid = FALSE,
+        zeroline = FALSE,
+        showticklabels = FALSE
+      ),
+      yaxis = list(
+        showgrid = FALSE,
+        zeroline = FALSE,
+        showticklabels = FALSE
+      )
+    )
+  faculty
+}
+```
+
